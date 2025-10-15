@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Hotel Maerkli Brand Colors */
+  --color-primary-DEFAULT: #3A5BA0;
+  --color-primary-50: #E8EDF7;
+  --color-primary-100: #D1DBEF;
+  --color-primary-200: #A3B7DF;
+  --color-primary-300: #7593CF;
+  --color-primary-400: #476FBF;
+  --color-primary-500: #3A5BA0;
+  --color-primary-600: #2E4980;
+  --color-primary-700: #233760;
+  --color-primary-800: #172540;
+  --color-primary-900: #0C1220;
+
+  --color-accent-DEFAULT: #E89B3C;
+  --color-accent-50: #FDF6ED;
+  --color-accent-100: #FBECD7;
+  --color-accent-200: #F7D9AF;
+  --color-accent-300: #F3C687;
+  --color-accent-400: #EFB35F;
+  --color-accent-500: #E89B3C;
+  --color-accent-600: #D67E1A;
+  --color-accent-700: #A66114;
+  --color-accent-800: #77450E;
+  --color-accent-900: #472908;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Override primary colors directly */
+.bg-primary {
+  background-color: #3A5BA0 !important;
+}
+
+.text-primary {
+  color: #3A5BA0 !important;
+}
+
+.border-primary {
+  border-color: #3A5BA0 !important;
+}
+
+.bg-primary\/5 {
+  background-color: rgba(58, 91, 160, 0.05) !important;
+}
+
+.hover\:bg-primary-600:hover {
+  background-color: #2E4980 !important;
+}
+
+.ring-primary {
+  --tw-ring-color: #3A5BA0 !important;
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: #3A5BA0 !important;
+}
+
+.bg-accent {
+  background-color: #E89B3C !important;
+}
+
+.hover\:bg-accent-600:hover {
+  background-color: #D67E1A !important;
+}
+
+.text-primary-100 {
+  color: #D1DBEF !important;
+}
