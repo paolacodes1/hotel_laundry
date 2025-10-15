@@ -27,8 +27,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="icon" href="/logo.png" />
-        <link rel="apple-touch-icon" href="/logo.png" />
+        <link rel="icon" href="/hotel_laundry/logo.png" />
+        <link rel="apple-touch-icon" href="/hotel_laundry/logo.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-gray-50`}>
         {children}

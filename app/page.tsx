@@ -11,7 +11,6 @@ import type { LaundryItems, UploadedSheet, LaundryCategory } from '@/types';
 import { LAUNDRY_CATEGORIES } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import Image from 'next/image';
 
 type ViewMode = 'pending' | 'batches' | 'add-sheet' | 'tracking' | 'settings';
 
@@ -174,7 +173,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Image src="/logo.png" alt="Hotel Maerkli" width={100} height={100} className="rounded-full bg-white p-2" />
+              <img src="/hotel_laundry/logo.png" alt="Hotel Maerkli" width={100} height={100} className="rounded-full bg-white p-2" />
               <div>
                 <h1 className="text-2xl font-bold">Controle de Lavanderia</h1>
                 <p className="text-primary-100 text-sm">Hotel Maerkli</p>
