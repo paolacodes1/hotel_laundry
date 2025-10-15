@@ -1,7 +1,7 @@
 // Test script to list available Gemini models
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const apiKey = 'your_api_key_here';
+const apiKey = process.env.GEMINI_API_KEY || 'your_api_key_here';
 const genAI = new GoogleGenerativeAI(apiKey);
 
 async function testModel() {
