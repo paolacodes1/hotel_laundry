@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 import withPWA from 'next-pwa';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: 'export',
+  basePath: '/hotel_laundry',
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default withPWA({

@@ -18,6 +18,7 @@ export default function InventoryTracking() {
   const [editingFloorStock, setEditingFloorStock] = useState(false);
   const [floorStockEdit, setFloorStockEdit] = useState<LaundryItems>(createEmptyItems());
   const [selectedBatchForReturn, setSelectedBatchForReturn] = useState<string | null>(null);
+  const [showBulkReturnModal, setShowBulkReturnModal] = useState(false);
   const [returnItems, setReturnItems] = useState<LaundryItems>(createEmptyItems());
   const [returnImageUrl, setReturnImageUrl] = useState<string>('');
   const [showDamageModal, setShowDamageModal] = useState(false);
@@ -32,6 +33,7 @@ export default function InventoryTracking() {
     floorInventories,
     inventoryEvents,
     recordBatchReturn,
+    recordBulkReturn,
     updateFloorInventory,
     addInventoryEvent,
     getFloorInventory,
@@ -89,6 +91,44 @@ export default function InventoryTracking() {
       setReturnImageUrl('');
 
       alert('Retorno registrado com sucesso!');
+    } catch (error) {
+      alert('Erro ao registrar retorno: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    }
+  };
+
+  const handleSaveBulkReturn = () => {
+    try {
+      const completedBatchIds = recordBulkReturn(returnItems, returnImageUrl);
+
+      // Log return events for each category
+      (Object.keys(returnItems) as LaundryCategory[]).forEach(category => {
+        const returned = returnItems[category];
+        if (returned > 0) {
+          addInventoryEvent({
+            type: 'return',
+            category,
+            quantity: returned,
+            reason: 'Retorno em lote da lavanderia'
+          });
+        }
+      });
+
+      setShowBulkReturnModal(false);
+      setReturnItems(createEmptyItems());
+      setReturnImageUrl('');
+
+      // Generate PDFs for completed batches
+      if (completedBatchIds.length > 0) {
+        completedBatchIds.forEach(batchId => {
+          const batch = batches.find(b => b.id === batchId);
+          if (batch) {
+            generateReturnComparisonPDF(batch);
+          }
+        });
+        alert(`Retorno registrado com sucesso!\n\n${completedBatchIds.length} lote(s) completo(s) - Relatório(s) PDF gerado(s) automaticamente.`);
+      } else {
+        alert('Retorno parcial registrado com sucesso! Os itens faltantes ainda estão na lavanderia.');
+      }
     } catch (error) {
       alert('Erro ao registrar retorno: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
@@ -179,7 +219,7 @@ export default function InventoryTracking() {
       {view === 'overview' && (
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-sm font-medium text-gray-500 mb-2">Estoque Total no Hotel</h3>
               <p className="text-3xl font-bold text-green-600">
@@ -203,6 +243,19 @@ export default function InventoryTracking() {
                  Object.values(inTransitItems).reduce((s, v) => s + v, 0)}
               </p>
               <p className="text-xs text-gray-500 mt-1">estoque + em trânsito</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Danificados/Perdidos</h3>
+              <p className="text-3xl font-bold text-red-600">
+                {(() => {
+                  const damagedCount = inventoryEvents
+                    .filter(e => e.type === 'damage' || e.type === 'loss')
+                    .reduce((sum, e) => sum + Math.abs(e.quantity), 0);
+                  return damagedCount;
+                })()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">total histórico</p>
             </div>
           </div>
 
@@ -355,9 +408,26 @@ export default function InventoryTracking() {
       {view === 'in-transit' && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Lotes em Trânsito
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Lotes em Trânsito
+              </h2>
+              {batches.filter(b => b.status === 'in_transit').length > 0 && (
+                <button
+                  onClick={() => {
+                    setShowBulkReturnModal(true);
+                    setReturnItems(createEmptyItems());
+                    setReturnImageUrl('');
+                  }}
+                  className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-600 transition-colors flex items-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Registrar Retorno</span>
+                </button>
+              )}
+            </div>
 
             {batches.filter(b => b.status === 'in_transit').length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -383,16 +453,6 @@ export default function InventoryTracking() {
                           Total enviado: {Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0)} itens
                         </p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setSelectedBatchForReturn(batch.id);
-                          setReturnItems(createEmptyItems());
-                          setReturnImageUrl('');
-                        }}
-                        className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-600 transition-colors"
-                      >
-                        Registrar Retorno
-                      </button>
                     </div>
 
                     {/* Items breakdown */}
@@ -412,6 +472,104 @@ export default function InventoryTracking() {
               </div>
             )}
           </div>
+
+          {/* Bulk Return Modal */}
+          {showBulkReturnModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Registrar Retorno da Lavanderia
+                    </h2>
+                    <button
+                      onClick={() => {
+                        setShowBulkReturnModal(false);
+                        setReturnItems(createEmptyItems());
+                        setReturnImageUrl('');
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-900">
+                        <strong>Como funciona:</strong> Os itens retornados serão automaticamente deduzidos dos lotes em trânsito,
+                        começando pelos mais antigos primeiro.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">
+                        Total em Trânsito (Referência)
+                      </h3>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {(() => {
+                            const inTransitBatches = batches.filter(b => b.status === 'in_transit');
+                            const totalInTransit = createEmptyItems();
+                            inTransitBatches.forEach(batch => {
+                              (Object.keys(batch.totalItems) as LaundryCategory[]).forEach(cat => {
+                                totalInTransit[cat] += batch.totalItems[cat];
+                              });
+                            });
+                            return (Object.keys(totalInTransit) as LaundryCategory[])
+                              .filter(cat => totalInTransit[cat] > 0)
+                              .map(cat => (
+                                <div key={cat} className="flex justify-between">
+                                  <span className="text-gray-600">{LAUNDRY_CATEGORIES[cat]}:</span>
+                                  <span className="font-semibold text-gray-900">{totalInTransit[cat]}</span>
+                                </div>
+                              ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <PhotoUpload onImageProcessed={handleReturnImageProcessed} mode="return" />
+
+                    {returnImageUrl && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Revise os itens retornados:
+                          </label>
+                          <LaundryItemsTable
+                            items={returnItems}
+                            onChange={setReturnItems}
+                          />
+                        </div>
+
+                        <div className="flex space-x-4">
+                          <button
+                            onClick={handleSaveBulkReturn}
+                            className="flex-1 bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-600 transition-colors"
+                          >
+                            Salvar Retorno
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowBulkReturnModal(false);
+                              setReturnItems(createEmptyItems());
+                              setReturnImageUrl('');
+                            }}
+                            className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Return Registration Modal */}
           {selectedBatchForReturn && (

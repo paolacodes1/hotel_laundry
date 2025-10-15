@@ -8,8 +8,10 @@ import type {
   PricingConfig,
   LaundryCategory,
   FloorInventory,
-  InventoryEvent
+  InventoryEvent,
+  Discrepancy
 } from '@/types';
+import { LAUNDRY_CATEGORIES } from '@/types';
 
 // Helper to create empty laundry items
 export const createEmptyItems = (): LaundryItems => ({
@@ -178,6 +180,98 @@ export const useLaundryStore = create<LaundryStore>()(
         }));
       },
 
+      recordBulkReturn: (returnedItems: LaundryItems, returnImageUrl: string) => {
+        const completedBatchIds: string[] = [];
+
+        set(state => {
+          // Get all in-transit AND partially received batches sorted by sent date (oldest first)
+          const incompleteBatches = state.batches
+            .filter(b => b.status === 'in_transit' || (b.status === 'received' && b.discrepancies && b.discrepancies.some(d => d.difference < 0)))
+            .sort((a, b) => {
+              const dateA = a.sentDate ? new Date(a.sentDate).getTime() : 0;
+              const dateB = b.sentDate ? new Date(b.sentDate).getTime() : 0;
+              return dateA - dateB;
+            });
+
+          if (incompleteBatches.length === 0) {
+            alert('Nenhum lote em trânsito para processar retorno');
+            return state;
+          }
+
+          // Create a copy of returned items to track what's left to deduct
+          const remaining = { ...returnedItems };
+          const updatedBatches = [...state.batches];
+
+          // Process each batch in order (oldest first)
+          incompleteBatches.forEach(batch => {
+            const batchIndex = updatedBatches.findIndex(b => b.id === batch.id);
+            if (batchIndex === -1) return;
+
+            // Get what's already been returned (if any)
+            const previouslyReturned = batch.returnedItems || createEmptyItems();
+
+            // Calculate what can be returned from this batch
+            const newReturned = createEmptyItems();
+            let hasReturns = false;
+
+            (Object.keys(remaining) as LaundryCategory[]).forEach(category => {
+              const totalSent = batch.totalItems[category];
+              const alreadyReturned = previouslyReturned[category];
+              const stillNeeded = totalSent - alreadyReturned;
+              const available = remaining[category];
+
+              if (stillNeeded > 0 && available > 0) {
+                const toReturn = Math.min(stillNeeded, available);
+                newReturned[category] = toReturn;
+                remaining[category] -= toReturn;
+                hasReturns = true;
+              }
+            });
+
+            // Update batch if it received any items back
+            if (hasReturns) {
+              // Add to previously returned items
+              const totalReturned = createEmptyItems();
+              (Object.keys(totalReturned) as LaundryCategory[]).forEach(cat => {
+                totalReturned[cat] = previouslyReturned[cat] + newReturned[cat];
+              });
+
+              const discrepancies = calculateDiscrepancies(batch.totalItems, totalReturned);
+              const isComplete = discrepancies.length === 0;
+
+              updatedBatches[batchIndex] = {
+                ...batch,
+                status: isComplete ? 'completed' as const : 'received' as const,
+                returnedItems: totalReturned,
+                returnImageUrl,
+                returnedDate: batch.returnedDate || new Date().toISOString(),
+                discrepancies,
+                updatedAt: new Date().toISOString()
+              };
+
+              if (isComplete) {
+                completedBatchIds.push(batch.id);
+              }
+            }
+          });
+
+          // Check if there are remaining items that couldn't be matched
+          const totalRemaining = Object.values(remaining).reduce((sum, val) => sum + val, 0);
+          if (totalRemaining > 0) {
+            const remainingList = (Object.keys(remaining) as LaundryCategory[])
+              .filter(cat => remaining[cat] > 0)
+              .map(cat => `${remaining[cat]} ${LAUNDRY_CATEGORIES[cat]}`)
+              .join(', ');
+            alert(`Atenção: ${totalRemaining} itens retornados não correspondem aos lotes em trânsito:\n${remainingList}\n\nEsses itens extras foram registrados mas não foram atribuídos a nenhum lote.`);
+          }
+
+          return { batches: updatedBatches };
+        });
+
+        // Return the completed batch IDs for PDF generation
+        return completedBatchIds;
+      },
+
       markBatchAsCompleted: (batchId: string) => {
         set(state => ({
           batches: state.batches.map(batch =>
@@ -189,6 +283,34 @@ export const useLaundryStore = create<LaundryStore>()(
                 }
               : batch
           )
+        }));
+      },
+
+      updateBatch: (batchId: string, items: LaundryItems, collectionCost: number, notes?: string) => {
+        set(state => {
+          const itemsCost = calculateCost(items, state.pricing);
+          const totalCost = itemsCost + collectionCost;
+
+          return {
+            batches: state.batches.map(batch =>
+              batch.id === batchId
+                ? {
+                    ...batch,
+                    totalItems: items,
+                    collectionCost,
+                    totalCost,
+                    notes,
+                    updatedAt: new Date().toISOString()
+                  }
+                : batch
+            )
+          };
+        });
+      },
+
+      deleteBatch: (batchId: string) => {
+        set(state => ({
+          batches: state.batches.filter(batch => batch.id !== batchId)
         }));
       },
 

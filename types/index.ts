@@ -128,7 +128,10 @@ export interface LaundryStore {
   createBatchFromPending: (collectionCost: number, notes?: string) => LaundryBatch;
   markBatchAsSent: (batchId: string, sentBy: string, expectedReturnDate?: string) => void;
   recordBatchReturn: (batchId: string, returnedItems: LaundryItems, returnImageUrl: string) => void;
+  recordBulkReturn: (returnedItems: LaundryItems, returnImageUrl: string) => string[];
   markBatchAsCompleted: (batchId: string) => void;
+  updateBatch: (batchId: string, items: LaundryItems, collectionCost: number, notes?: string) => void;
+  deleteBatch: (batchId: string) => void;
   updatePricing: (pricing: PricingConfig) => void;
   updateGeminiApiKey: (apiKey: string) => void;
   getBatch: (id: string) => LaundryBatch | undefined;

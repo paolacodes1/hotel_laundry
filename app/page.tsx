@@ -23,6 +23,10 @@ export default function Home() {
   const [selectedFloor, setSelectedFloor] = useState<string>('');
   const [batchNotes, setBatchNotes] = useState('');
   const [collectionCost, setCollectionCost] = useState(150);
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editBatchItems, setEditBatchItems] = useState<LaundryItems>(createEmptyItems());
+  const [editBatchNotes, setEditBatchNotes] = useState('');
+  const [editBatchCollectionCost, setEditBatchCollectionCost] = useState(150);
 
   const {
     pendingSheets,
@@ -30,7 +34,10 @@ export default function Home() {
     addPendingSheet,
     removePendingSheet,
     createBatchFromPending,
-    markBatchAsSent
+    markBatchAsSent,
+    updateBatch,
+    deleteBatch,
+    getBatch
   } = useLaundryStore();
 
   const handleImageProcessed = (items: LaundryItems, imageUrl: string) => {
@@ -86,6 +93,78 @@ export default function Home() {
       generateRequisitionPDF(batch);
     }
     alert('Lote marcado como enviado! PDF gerado.');
+  };
+
+  const handleStartEditBatch = (batchId: string) => {
+    const batch = getBatch(batchId);
+    if (!batch) return;
+
+    setEditBatchItems(batch.totalItems);
+    setEditBatchCollectionCost(batch.collectionCost);
+    setEditBatchNotes(batch.notes || '');
+    setEditingBatchId(batchId);
+  };
+
+  const handleSaveEditBatch = () => {
+    if (!editingBatchId) return;
+
+    updateBatch(editingBatchId, editBatchItems, editBatchCollectionCost, editBatchNotes || undefined);
+    setEditingBatchId(null);
+    alert('Lote atualizado com sucesso!');
+  };
+
+  const handleCancelEditBatch = () => {
+    setEditingBatchId(null);
+    setEditBatchItems(createEmptyItems());
+    setEditBatchNotes('');
+    setEditBatchCollectionCost(150);
+  };
+
+  const handleGeneratePDF = (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (batch) {
+      generateRequisitionPDF(batch);
+      alert('PDF gerado com sucesso!');
+    }
+  };
+
+  const handleSendEmail = (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    // Create email body with batch details
+    const itemsList = (Object.keys(batch.totalItems) as LaundryCategory[])
+      .filter(cat => batch.totalItems[cat] > 0)
+      .map(cat => `${LAUNDRY_CATEGORIES[cat]}: ${batch.totalItems[cat]}`)
+      .join('%0D%0A');
+
+    const subject = `Lote de Lavanderia #${batch.id.slice(-6)} - Hotel Maerkli`;
+    const body = `Olá,%0D%0A%0D%0ASegue o lote de lavanderia para processamento:%0D%0A%0D%0A` +
+      `Lote: #${batch.id.slice(-6)}%0D%0A` +
+      `Data de Envio: ${batch.sentDate ? format(new Date(batch.sentDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '-'}%0D%0A` +
+      `Enviado por: ${batch.sentBy || '-'}%0D%0A%0D%0A` +
+      `Itens:%0D%0A${itemsList}%0D%0A%0D%0A` +
+      `Total de Itens: ${Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0)}%0D%0A` +
+      `Custo de Coleta: R$ ${batch.collectionCost.toFixed(2)}%0D%0A` +
+      `Custo Total: R$ ${batch.totalCost.toFixed(2)}%0D%0A%0D%0A` +
+      `Atenciosamente,%0D%0AHotel Maerkli`;
+
+    // Open default email client
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
+  const handleDeleteBatch = (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    const confirmMessage = `Tem certeza que deseja excluir o Lote #${batch.id.slice(-6)}?\n\n` +
+      `Esta ação não pode ser desfeita.\n` +
+      `${batch.sheets.length} folha(s) e ${Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0)} itens serão perdidos.`;
+
+    if (window.confirm(confirmMessage)) {
+      deleteBatch(batchId);
+      alert('Lote excluído com sucesso!');
+    }
   };
 
   return (
@@ -250,14 +329,25 @@ export default function Home() {
                 <h2 className="text-xl font-semibold text-gray-900">
                   Folhas Pendentes ({pendingSheets.length})
                 </h2>
-                {pendingSheets.length > 0 && (
+                <div className="flex space-x-3">
                   <button
-                    onClick={handleCreateBatch}
-                    className="bg-accent text-white px-6 py-2 rounded-lg font-medium hover:bg-accent-600 transition-colors"
+                    onClick={() => setViewMode('add-sheet')}
+                    className="border border-primary text-primary px-4 py-2 rounded-lg font-medium hover:bg-primary-50 transition-colors flex items-center space-x-2"
                   >
-                    Criar Lote e Enviar
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Adicionar Folha</span>
                   </button>
-                )}
+                  {pendingSheets.length > 0 && (
+                    <button
+                      onClick={handleCreateBatch}
+                      className="bg-accent text-white px-6 py-2 rounded-lg font-medium hover:bg-accent-600 transition-colors"
+                    >
+                      Criar Lote e Enviar
+                    </button>
+                  )}
+                </div>
               </div>
 
               {pendingSheets.length === 0 ? (
@@ -418,14 +508,56 @@ export default function Home() {
                         </div>
                       )}
 
-                      <div className="flex space-x-2 mt-4">
+                      <div className="flex flex-wrap gap-2 mt-4">
                         {batch.status === 'pending' && (
-                          <button
-                            onClick={() => handleSendBatch(batch.id)}
-                            className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-600 transition-colors"
-                          >
-                            Enviar para Lavanderia
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleSendBatch(batch.id)}
+                              className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-600 transition-colors"
+                            >
+                              Enviar para Lavanderia
+                            </button>
+                            <button
+                              onClick={() => handleStartEditBatch(batch.id)}
+                              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors flex items-center space-x-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBatch(batch.id)}
+                              className="border border-red-300 text-red-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-50 transition-colors flex items-center space-x-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Excluir</span>
+                            </button>
+                          </>
+                        )}
+                        {batch.status === 'in_transit' && (
+                          <>
+                            <button
+                              onClick={() => handleGeneratePDF(batch.id)}
+                              className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-600 transition-colors flex items-center space-x-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                              <span>Gerar PDF</span>
+                            </button>
+                            <button
+                              onClick={() => handleSendEmail(batch.id)}
+                              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors flex items-center space-x-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              <span>Enviar Email</span>
+                            </button>
+                          </>
                         )}
                         {batch.returnedItems && (
                           <button
@@ -441,6 +573,81 @@ export default function Home() {
                 </div>
               )}
             </div>
+
+            {/* Edit Batch Modal */}
+            {editingBatchId && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        Editar Lote #{editingBatchId.slice(-6)}
+                      </h2>
+                      <button
+                        onClick={handleCancelEditBatch}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Itens do Lote
+                        </label>
+                        <LaundryItemsTable
+                          items={editBatchItems}
+                          onChange={setEditBatchItems}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Custo de Coleta (R$)
+                        </label>
+                        <input
+                          type="number"
+                          value={editBatchCollectionCost}
+                          onChange={(e) => setEditBatchCollectionCost(parseFloat(e.target.value) || 0)}
+                          className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-primary font-semibold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Observações (opcional)
+                        </label>
+                        <textarea
+                          value={editBatchNotes}
+                          onChange={(e) => setEditBatchNotes(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-primary font-semibold"
+                          rows={2}
+                          placeholder="Observações sobre este lote"
+                        />
+                      </div>
+
+                      <div className="flex space-x-4">
+                        <button
+                          onClick={handleSaveEditBatch}
+                          className="flex-1 bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-600 transition-colors"
+                        >
+                          Salvar Alterações
+                        </button>
+                        <button
+                          onClick={handleCancelEditBatch}
+                          className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

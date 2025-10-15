@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { LaundryBatch, LaundryCategory, LAUNDRY_CATEGORIES } from '@/types';
+import type { LaundryBatch, LaundryCategory } from '@/types';
+import { LAUNDRY_CATEGORIES } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
