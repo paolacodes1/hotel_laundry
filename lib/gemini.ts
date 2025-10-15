@@ -1,4 +1,4 @@
-import { GoogleAIFileManager, GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { LaundryItems } from '@/types';
 import { createEmptyItems } from './store';
 
