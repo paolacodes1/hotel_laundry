@@ -26,6 +26,7 @@ export default function Home() {
   const [editBatchItems, setEditBatchItems] = useState<LaundryItems>(createEmptyItems());
   const [editBatchNotes, setEditBatchNotes] = useState('');
   const [editBatchCollectionCost, setEditBatchCollectionCost] = useState(150);
+  const [inputMode, setInputMode] = useState<'photo' | 'manual'>('photo');
 
   const {
     pendingSheets,
@@ -46,11 +47,14 @@ export default function Home() {
 
   const handleSaveSheet = () => {
     try {
+      // For manual entry, use a placeholder image
+      const imageUrl = currentImageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzNBNUJBMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+TWFudWFsPC90ZXh0Pjwvc3ZnPg==';
+
       const sheet: UploadedSheet = {
         id: `sheet_${Date.now()}`,
         date: new Date().toISOString(),
         floor: selectedFloor || undefined,
-        imageUrl: currentImageUrl,
+        imageUrl,
         items: currentItems,
         uploadedAt: new Date().toISOString(),
         notes: sheetNotes || undefined
@@ -63,6 +67,7 @@ export default function Home() {
       setCurrentImageUrl('');
       setSheetNotes('');
       setSelectedFloor('');
+      setInputMode('photo');
       setViewMode('pending');
     } catch (error) {
       if (error instanceof Error && error.message.includes('quota')) {
@@ -268,20 +273,79 @@ export default function Home() {
                   </select>
                 </div>
 
-                <PhotoUpload onImageProcessed={handleImageProcessed} mode="send" />
+                {/* Input Mode Toggle */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Método de Entrada
+                  </label>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setInputMode('photo')}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
+                        inputMode === 'photo'
+                          ? 'bg-primary text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span>Fotografar Folha</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInputMode('manual');
+                        setCurrentImageUrl(''); // Clear image when switching to manual
+                      }}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
+                        inputMode === 'manual'
+                          ? 'bg-primary text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span>Entrada Manual</span>
+                    </button>
+                  </div>
+                </div>
 
-                {currentImageUrl && (
+                {/* Photo Upload Mode */}
+                {inputMode === 'photo' && (
+                  <PhotoUpload onImageProcessed={handleImageProcessed} mode="send" />
+                )}
+
+                {/* Manual Input Mode */}
+                {inputMode === 'manual' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Digite as quantidades:
+                    </label>
+                    <LaundryItemsTable
+                      items={currentItems}
+                      onChange={setCurrentItems}
+                    />
+                  </div>
+                )}
+
+                {/* Show items table if photo was processed */}
+                {currentImageUrl && inputMode === 'photo' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Revise e ajuste os valores detectados:
+                    </label>
+                    <LaundryItemsTable
+                      items={currentItems}
+                      onChange={setCurrentItems}
+                    />
+                  </div>
+                )}
+
+                {/* Notes - Show when either mode has data */}
+                {(currentImageUrl || inputMode === 'manual') && (
                   <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Revise e ajuste os valores detectados:
-                      </label>
-                      <LaundryItemsTable
-                        items={currentItems}
-                        onChange={setCurrentItems}
-                      />
-                    </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Observações (opcional)
@@ -308,6 +372,7 @@ export default function Home() {
                           setCurrentImageUrl('');
                           setSheetNotes('');
                           setSelectedFloor('');
+                          setInputMode('photo');
                         }}
                         className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                       >
