@@ -441,8 +441,16 @@ export default function InventoryTracking() {
               </div>
             ) : (
               <div className="space-y-4">
-                {batches.filter(b => b.status === 'in_transit').map((batch) => (
-                  <div key={batch.id} className="border-2 border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                {batches.filter(b => b.status === 'in_transit').map((batch) => {
+                  const hasPartialReturn = batch.returnedItems && Object.values(batch.returnedItems).some(v => v > 0);
+                  const totalReturned = batch.returnedItems ? Object.values(batch.returnedItems).reduce((s, v) => s + v, 0) : 0;
+                  const totalSent = Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0);
+                  const stillMissing = totalSent - totalReturned;
+
+                  return (
+                  <div key={batch.id} className={`border-2 rounded-lg p-4 ${
+                    hasPartialReturn ? 'border-orange-300 bg-orange-50' : 'border-yellow-200 bg-yellow-50'
+                  }`}>
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg text-gray-900">
@@ -453,8 +461,18 @@ export default function InventoryTracking() {
                           {batch.sentBy && ` por ${batch.sentBy}`}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Total enviado: {Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0)} itens
+                          Total enviado: {totalSent} itens
                         </p>
+                        {hasPartialReturn && (
+                          <>
+                            <p className="text-sm text-green-700 font-medium mt-1">
+                              ✓ Já retornado: {totalReturned} itens
+                            </p>
+                            <p className="text-sm text-red-700 font-medium">
+                              ⚠️ Ainda faltando: {stillMissing} itens
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -481,7 +499,8 @@ export default function InventoryTracking() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

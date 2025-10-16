@@ -184,9 +184,9 @@ export const useLaundryStore = create<LaundryStore>()(
         const completedBatchIds: string[] = [];
 
         set(state => {
-          // Get all in-transit AND partially received batches sorted by sent date (oldest first)
+          // Get all in-transit batches sorted by sent date (oldest first)
           const incompleteBatches = state.batches
-            .filter(b => b.status === 'in_transit' || (b.status === 'received' && b.discrepancies && b.discrepancies.some(d => d.difference < 0)))
+            .filter(b => b.status === 'in_transit')
             .sort((a, b) => {
               const dateA = a.sentDate ? new Date(a.sentDate).getTime() : 0;
               const dateB = b.sentDate ? new Date(b.sentDate).getTime() : 0;
@@ -241,7 +241,7 @@ export const useLaundryStore = create<LaundryStore>()(
 
               updatedBatches[batchIndex] = {
                 ...batch,
-                status: isComplete ? 'completed' as const : 'received' as const,
+                status: isComplete ? 'completed' as const : 'in_transit' as const,
                 returnedItems: totalReturned,
                 returnImageUrl,
                 returnedDate: batch.returnedDate || new Date().toISOString(),
@@ -379,7 +379,10 @@ export const useLaundryStore = create<LaundryStore>()(
           .filter(b => b.status === 'in_transit')
           .forEach(batch => {
             (Object.keys(inTransit) as LaundryCategory[]).forEach(key => {
-              inTransit[key] += batch.totalItems[key] || 0;
+              const sent = batch.totalItems[key] || 0;
+              const returned = batch.returnedItems?.[key] || 0;
+              const stillInTransit = sent - returned;
+              inTransit[key] += stillInTransit;
             });
           });
         return inTransit;
