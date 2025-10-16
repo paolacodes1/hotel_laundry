@@ -203,3 +203,206 @@ export function generateReturnComparisonPDF(batch: LaundryBatch): void {
   const filename = `relatorio_retorno_${returnDate.replace(/\//g, '-')}_${batch.id.slice(-6)}.pdf`;
   doc.save(filename);
 }
+
+export function generateInTransitStatusPDF(batch: LaundryBatch): void {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RELATÓRIO DE STATUS - LAVANDERIA', 105, 20, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text('HOTEL MAERKLI', 105, 28, { align: 'center' });
+
+  // Status badge
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  const statusText = batch.status === 'in_transit' ? 'EM TRÂNSITO' : 'RETORNO PARCIAL';
+  const statusColor = batch.status === 'in_transit' ? [232, 155, 60] : [234, 88, 12]; // Gold or orange
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+  doc.text(`Status: ${statusText}`, 105, 36, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+
+  // Dates
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const sentDate = batch.sentDate ? format(new Date(batch.sentDate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '-';
+  doc.text(`Enviado em: ${sentDate}`, 14, 46);
+
+  if (batch.sentBy) {
+    doc.text(`Responsável pelo envio: ${batch.sentBy}`, 14, 52);
+  }
+
+  if (batch.returnedDate) {
+    const returnDate = format(new Date(batch.returnedDate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    doc.text(`Primeira entrega em: ${returnDate}`, 14, batch.sentBy ? 58 : 52);
+  }
+
+  // Items table
+  const tableStartY = batch.returnedDate ? (batch.sentBy ? 66 : 60) : (batch.sentBy ? 60 : 54);
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Itens Enviados:', 14, tableStartY);
+
+  const sentTableData: (string | number)[][] = [];
+  const categories = Object.keys(batch.totalItems) as LaundryCategory[];
+
+  categories.forEach(category => {
+    const quantity = batch.totalItems[category];
+    if (quantity > 0) {
+      sentTableData.push([
+        LAUNDRY_CATEGORIES[category],
+        quantity
+      ]);
+    }
+  });
+
+  const totalSent = Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0);
+
+  autoTable(doc, {
+    startY: tableStartY + 4,
+    head: [['Item', 'Quantidade']],
+    body: sentTableData,
+    foot: [['Total Enviado', totalSent]],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [58, 91, 160],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    footStyles: {
+      fillColor: [232, 155, 60],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { halign: 'left' },
+      1: { halign: 'right' }
+    },
+    styles: {
+      fontSize: 10,
+      cellPadding: 3
+    }
+  });
+
+  let currentY = ((doc as unknown) as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY || 100;
+
+  // If there are partial returns, show what's still missing
+  if (batch.returnedItems && batch.discrepancies && batch.discrepancies.length > 0) {
+    currentY += 10;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(220, 38, 38);
+    doc.text('⚠ Itens Ainda na Lavanderia:', 14, currentY);
+    doc.setTextColor(0, 0, 0);
+
+    const missingTableData: (string | number)[][] = [];
+    let totalMissing = 0;
+
+    batch.discrepancies.forEach(disc => {
+      if (disc.difference < 0) { // Only items not yet returned
+        const missing = Math.abs(disc.difference);
+        missingTableData.push([
+          LAUNDRY_CATEGORIES[disc.category],
+          missing
+        ]);
+        totalMissing += missing;
+      }
+    });
+
+    autoTable(doc, {
+      startY: currentY + 4,
+      head: [['Item', 'Faltando']],
+      body: missingTableData,
+      foot: [['Total Faltando', totalMissing]],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [220, 38, 38],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      footStyles: {
+        fillColor: [153, 27, 27],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'right' }
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      }
+    });
+
+    currentY = ((doc as unknown) as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY || currentY;
+
+    // Show what was already returned
+    currentY += 10;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(22, 163, 74);
+    doc.text('✓ Já Retornado:', 14, currentY);
+    doc.setTextColor(0, 0, 0);
+
+    const returnedTableData: (string | number)[][] = [];
+    let totalReturned = 0;
+
+    categories.forEach(category => {
+      const returned = batch.returnedItems![category];
+      if (returned > 0) {
+        returnedTableData.push([
+          LAUNDRY_CATEGORIES[category],
+          returned
+        ]);
+        totalReturned += returned;
+      }
+    });
+
+    autoTable(doc, {
+      startY: currentY + 4,
+      head: [['Item', 'Quantidade']],
+      body: returnedTableData,
+      foot: [['Total Retornado', totalReturned]],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [22, 163, 74],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      footStyles: {
+        fillColor: [21, 128, 61],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'right' }
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      }
+    });
+  }
+
+  // Footer
+  const pageHeight = doc.internal.pageSize.height;
+  doc.setFontSize(8);
+  doc.setTextColor(128, 128, 128);
+  doc.text(`Lote #${batch.id}`, 14, pageHeight - 10);
+  const now = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  doc.text(`Relatório gerado em: ${now}`, 105, pageHeight - 10, { align: 'center' });
+
+  // Save
+  const dateStr = format(new Date(), "dd-MM-yyyy", { locale: ptBR });
+  const filename = `status_lote_${dateStr}_${batch.id.slice(-6)}.pdf`;
+  doc.save(filename);
+}

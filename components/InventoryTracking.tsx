@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLaundryStore, createEmptyItems } from '@/lib/store';
 import LaundryItemsTable from './LaundryItemsTable';
 import PhotoUpload from './PhotoUpload';
-import { generateReturnComparisonPDF } from '@/lib/pdf';
+import { generateReturnComparisonPDF, generateInTransitStatusPDF } from '@/lib/pdf';
 import type { LaundryItems, LaundryCategory } from '@/types';
 import { LAUNDRY_CATEGORIES } from '@/types';
 import { format } from 'date-fns';
@@ -459,7 +459,7 @@ export default function InventoryTracking() {
                     </div>
 
                     {/* Items breakdown */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-4">
                       {(Object.keys(batch.totalItems) as LaundryCategory[])
                         .filter(cat => batch.totalItems[cat] > 0)
                         .map(cat => (
@@ -469,6 +469,16 @@ export default function InventoryTracking() {
                           </div>
                         ))
                       }
+                    </div>
+
+                    {/* Status Report Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => generateInTransitStatusPDF(batch)}
+                        className="border border-yellow-600 text-yellow-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-50 transition-colors"
+                      >
+                        Ver Status
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -770,7 +780,7 @@ export default function InventoryTracking() {
                                 ))}
                             </ul>
                             <p className="text-xs text-gray-600 mt-2">
-                              O relatório será gerado automaticamente quando tudo for retornado.
+                              O relatório de conclusão será gerado automaticamente quando tudo for retornado.
                             </p>
                           </div>
                         ) : (
@@ -779,8 +789,15 @@ export default function InventoryTracking() {
                           </p>
                         )}
                       </div>
-                      {/* Only show PDF button if batch is complete (no discrepancies) */}
-                      {(!batch.discrepancies || batch.discrepancies.length === 0) && (
+                      {/* Show appropriate button based on batch completion status */}
+                      {batch.discrepancies && batch.discrepancies.length > 0 ? (
+                        <button
+                          onClick={() => generateInTransitStatusPDF(batch)}
+                          className="border border-orange-500 text-orange-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-50 transition-colors"
+                        >
+                          Ver Status
+                        </button>
+                      ) : (
                         <button
                           onClick={() => generateReturnComparisonPDF(batch)}
                           className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
