@@ -100,9 +100,13 @@ export function generateRequisitionPDF(batch: LaundryBatch): void {
   doc.text(`Lote #${batch.id}`, 14, pageHeight - 10);
   doc.text('Assinatura: ___________________________', 105, pageHeight - 10, { align: 'center' });
 
-  // Save PDF
-  const filename = `requisicao_lavanderia_${dateStr.replace(/\//g, '-')}_${batch.id.slice(-6)}.pdf`;
-  doc.save(filename);
+  // Open PDF in new window/tab for preview
+  const pdfBlob = doc.output('blob');
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, '_blank');
+
+  // Clean up the URL after a delay
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
 }
 
 export function generateReturnComparisonPDF(batch: LaundryBatch): void {
@@ -199,9 +203,13 @@ export function generateReturnComparisonPDF(batch: LaundryBatch): void {
     });
   }
 
-  // Save
-  const filename = `relatorio_retorno_${returnDate.replace(/\//g, '-')}_${batch.id.slice(-6)}.pdf`;
-  doc.save(filename);
+  // Open PDF in new window/tab for preview
+  const pdfBlob = doc.output('blob');
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, '_blank');
+
+  // Clean up the URL after a delay
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
 }
 
 export function generateInTransitStatusPDF(batch: LaundryBatch): void {
@@ -401,8 +409,11 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
   const now = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   doc.text(`Relatório gerado em: ${now}`, 105, pageHeight - 10, { align: 'center' });
 
-  // Save
-  const dateStr = format(new Date(), "dd-MM-yyyy", { locale: ptBR });
-  const filename = `status_lote_${dateStr}_${batch.id.slice(-6)}.pdf`;
-  doc.save(filename);
+  // Open PDF in new window/tab for preview
+  const pdfBlob = doc.output('blob');
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, '_blank');
+
+  // Clean up the URL after a delay
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
 }
