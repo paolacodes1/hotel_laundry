@@ -100,13 +100,21 @@ export function generateRequisitionPDF(batch: LaundryBatch): void {
   doc.text(`Lote #${batch.id}`, 14, pageHeight - 10);
   doc.text('Assinatura: ___________________________', 105, pageHeight - 10, { align: 'center' });
 
-  // Open PDF in new window/tab for preview
+  // Open PDF in new window/tab for preview with download capability
+  const filename = `requisicao_lavanderia_${dateStr.replace(/\//g, '-')}_${batch.id.slice(-6)}.pdf`;
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
-  window.open(pdfUrl, '_blank');
+
+  // Open in new window
+  const newWindow = window.open(pdfUrl, '_blank');
+
+  // Set the title to the filename for better UX
+  if (newWindow) {
+    newWindow.document.title = filename;
+  }
 
   // Clean up the URL after a delay
-  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000); // 1 minute delay to allow download
 }
 
 export function generateReturnComparisonPDF(batch: LaundryBatch): void {
@@ -203,13 +211,21 @@ export function generateReturnComparisonPDF(batch: LaundryBatch): void {
     });
   }
 
-  // Open PDF in new window/tab for preview
+  // Open PDF in new window/tab for preview with download capability
+  const filename = `relatorio_retorno_${returnDate.replace(/\//g, '-')}_${batch.id.slice(-6)}.pdf`;
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
-  window.open(pdfUrl, '_blank');
+
+  // Open in new window
+  const newWindow = window.open(pdfUrl, '_blank');
+
+  // Set the title to the filename for better UX
+  if (newWindow) {
+    newWindow.document.title = filename;
+  }
 
   // Clean up the URL after a delay
-  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000); // 1 minute delay to allow download
 }
 
 export function generateInTransitStatusPDF(batch: LaundryBatch): void {
@@ -409,11 +425,20 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
   const now = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   doc.text(`Relatório gerado em: ${now}`, 105, pageHeight - 10, { align: 'center' });
 
-  // Open PDF in new window/tab for preview
+  // Open PDF in new window/tab for preview with download capability
+  const dateStr = format(new Date(), "dd-MM-yyyy", { locale: ptBR });
+  const filename = `status_lote_${dateStr}_${batch.id.slice(-6)}.pdf`;
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
-  window.open(pdfUrl, '_blank');
+
+  // Open in new window
+  const newWindow = window.open(pdfUrl, '_blank');
+
+  // Set the title to the filename for better UX
+  if (newWindow) {
+    newWindow.document.title = filename;
+  }
 
   // Clean up the URL after a delay
-  setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000); // 1 minute delay to allow download
 }
