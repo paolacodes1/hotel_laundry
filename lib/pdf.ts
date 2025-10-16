@@ -269,6 +269,7 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
   doc.text('Itens Enviados:', 14, tableStartY);
 
   const sentTableData: (string | number)[][] = [];
@@ -286,22 +287,19 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
 
   const totalSent = Object.values(batch.totalItems).reduce((sum, val) => sum + val, 0);
 
+  // Add total as a regular row
+  sentTableData.push(['Total Enviado', totalSent]);
+
   autoTable(doc, {
     startY: tableStartY + 4,
     head: [['Item', 'Quantidade']],
     body: sentTableData,
-    foot: [['Total Enviado', totalSent]],
     theme: 'grid',
     headStyles: {
       fillColor: [58, 91, 160],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center'
-    },
-    footStyles: {
-      fillColor: [232, 155, 60],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold'
     },
     columnStyles: {
       0: { halign: 'left' },
@@ -310,6 +308,14 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
     styles: {
       fontSize: 10,
       cellPadding: 3
+    },
+    didParseCell: function(data) {
+      // Style the last row (total) with gold background
+      if (data.section === 'body' && data.row.index === sentTableData.length - 1) {
+        data.cell.styles.fillColor = [232, 155, 60];
+        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fontStyle = 'bold';
+      }
     }
   });
 
@@ -320,9 +326,8 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
     currentY += 10;
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(220, 38, 38);
-    doc.text('⚠ Itens Ainda na Lavanderia:', 14, currentY);
     doc.setTextColor(0, 0, 0);
+    doc.text('⚠ Itens Ainda na Lavanderia:', 14, currentY);
 
     const missingTableData: (string | number)[][] = [];
     let totalMissing = 0;
@@ -338,22 +343,19 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
       }
     });
 
+    // Add total as a regular row
+    missingTableData.push(['Total Faltando', totalMissing]);
+
     autoTable(doc, {
       startY: currentY + 4,
       head: [['Item', 'Faltando']],
       body: missingTableData,
-      foot: [['Total Faltando', totalMissing]],
       theme: 'grid',
       headStyles: {
         fillColor: [220, 38, 38],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center'
-      },
-      footStyles: {
-        fillColor: [153, 27, 27],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
       },
       columnStyles: {
         0: { halign: 'left' },
@@ -362,6 +364,14 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
       styles: {
         fontSize: 10,
         cellPadding: 3
+      },
+      didParseCell: function(data) {
+        // Style the last row (total) with darker red background
+        if (data.section === 'body' && data.row.index === missingTableData.length - 1) {
+          data.cell.styles.fillColor = [153, 27, 27];
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
     });
 
@@ -371,9 +381,8 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
     currentY += 10;
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(22, 163, 74);
-    doc.text('✓ Já Retornado:', 14, currentY);
     doc.setTextColor(0, 0, 0);
+    doc.text('✓ Já Retornado:', 14, currentY);
 
     const returnedTableData: (string | number)[][] = [];
     let totalReturned = 0;
@@ -389,22 +398,19 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
       }
     });
 
+    // Add total as a regular row
+    returnedTableData.push(['Total Retornado', totalReturned]);
+
     autoTable(doc, {
       startY: currentY + 4,
       head: [['Item', 'Quantidade']],
       body: returnedTableData,
-      foot: [['Total Retornado', totalReturned]],
       theme: 'grid',
       headStyles: {
         fillColor: [22, 163, 74],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center'
-      },
-      footStyles: {
-        fillColor: [21, 128, 61],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
       },
       columnStyles: {
         0: { halign: 'left' },
@@ -413,6 +419,14 @@ export function generateInTransitStatusPDF(batch: LaundryBatch): void {
       styles: {
         fontSize: 10,
         cellPadding: 3
+      },
+      didParseCell: function(data) {
+        // Style the last row (total) with darker green background
+        if (data.section === 'body' && data.row.index === returnedTableData.length - 1) {
+          data.cell.styles.fillColor = [21, 128, 61];
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
     });
   }
