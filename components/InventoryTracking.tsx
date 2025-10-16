@@ -758,16 +758,20 @@ export default function InventoryTracking() {
                         {batch.discrepancies && batch.discrepancies.length > 0 ? (
                           <div className="mt-2">
                             <p className="text-sm font-semibold text-red-900 mb-1">
-                              ⚠️ Discrepâncias:
+                              ⚠️ Faltando retornar:
                             </p>
                             <ul className="text-sm text-red-700 space-y-1">
-                              {batch.discrepancies.map((disc, idx) => (
-                                <li key={idx}>
-                                  • {LAUNDRY_CATEGORIES[disc.category]}: {disc.difference > 0 ? '+' : ''}{disc.difference}
-                                  ({disc.sent} enviado, {disc.received} retornado)
-                                </li>
-                              ))}
+                              {batch.discrepancies
+                                .filter(disc => disc.difference < 0) // Only show missing items
+                                .map((disc, idx) => (
+                                  <li key={idx}>
+                                    • {LAUNDRY_CATEGORIES[disc.category]}: {Math.abs(disc.difference)} ainda na lavanderia
+                                  </li>
+                                ))}
                             </ul>
+                            <p className="text-xs text-gray-600 mt-2">
+                              O relatório será gerado automaticamente quando tudo for retornado.
+                            </p>
                           </div>
                         ) : (
                           <p className="text-sm font-semibold text-green-700 mt-2">
@@ -775,12 +779,15 @@ export default function InventoryTracking() {
                           </p>
                         )}
                       </div>
-                      <button
-                        onClick={() => generateReturnComparisonPDF(batch)}
-                        className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
-                      >
-                        Ver Relatório
-                      </button>
+                      {/* Only show PDF button if batch is complete (no discrepancies) */}
+                      {(!batch.discrepancies || batch.discrepancies.length === 0) && (
+                        <button
+                          onClick={() => generateReturnComparisonPDF(batch)}
+                          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Ver Relatório
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
